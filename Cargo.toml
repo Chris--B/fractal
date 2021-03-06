@@ -18,6 +18,9 @@ path = "src/view.rs"
 minifb = "0.19"
 rand = "0.8"
 
+# Enable minimal optimizations for our debug code
+[profile.dev]
+opt-level = 1
 
 # Enable aggressive optimizations for all dependencies all of the time
 [profile.dev.package."*"]
