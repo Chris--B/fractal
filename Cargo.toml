@@ -6,4 +6,22 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+name = "fractal"
+path = "src/lib.rs"
+
+[[bin]]
+name = "view"
+path = "src/view.rs"
+
 [dependencies]
+minifb = "0.19"
+rand = "0.8"
+
+
+# Enable aggressive optimizations for all dependencies all of the time
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release.package."*"]
+opt-level = 3
