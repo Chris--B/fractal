@@ -17,6 +17,7 @@ path = "src/view.rs"
 [dependencies]
 minifb = "0.19"
 rand = "0.8"
+num = "0.3"
 
 # Enable minimal optimizations for our debug code
 [profile.dev]
