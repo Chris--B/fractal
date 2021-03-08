@@ -36,45 +36,30 @@ struct SimConfig {
 }
 
 struct Sim {
-    px_dim_x: u32,
-    px_dim_y: u32,
-
-    bounds_min_x: f64,
-    bounds_min_y: f64,
-    bounds_max_x: f64,
-    bounds_max_y: f64,
+    config: SimConfig,
 }
 
 impl Sim {
     fn new(config: SimConfig) -> Self {
-        // TODO: Just save the config directly
-        Self {
-            px_dim_x: config.pixels.x,
-            px_dim_y: config.pixels.y,
-
-            bounds_min_x: config.frame_min.x,
-            bounds_min_y: config.frame_min.y,
-            bounds_max_x: config.frame_max.x,
-            bounds_max_y: config.frame_max.y,
-        }
+        Self { config }
     }
 
     #[inline]
     fn idx_to_complex(&self, idx: u32) -> Complex<f64> {
         // Unpack out integer coordinates
-        let x = idx % self.px_dim_x;
-        let y = idx / self.px_dim_x;
+        let x = idx % self.config.pixels.x;
+        let y = idx / self.config.pixels.x;
 
         // Normalize coordinates
-        let x: f64 = (x as f64) / (self.px_dim_x as f64);
-        let y: f64 = (y as f64) / (self.px_dim_y as f64);
+        let x: f64 = (x as f64) / (self.config.pixels.x as f64);
+        let y: f64 = (y as f64) / (self.config.pixels.y as f64);
 
         // Flip the buffer to put "bigger" y at the "top"
         let y: f64 = 1.0 - y;
 
         // Scale into the bounds space
-        let x = x * self.bounds_max_x + (1.0 - x) * self.bounds_min_x;
-        let y = y * self.bounds_max_y + (1.0 - y) * self.bounds_min_y;
+        let x = x * self.config.frame_max.x + (1.0 - x) * self.config.frame_min.x;
+        let y = y * self.config.frame_max.y + (1.0 - y) * self.config.frame_min.y;
 
         Complex::new(x, y)
     }
