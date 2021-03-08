@@ -4,19 +4,16 @@ use minifb::{Key, ScaleMode, Window, WindowOptions};
 use num::Complex;
 use ultraviolet::{DVec2, UVec2};
 
+const WHITE: u32 = rgb(0xff, 0xff, 0xff);
+const BLACK: u32 = rgb(0x00, 0x00, 0x00);
 const OPAQUE: u32 = 0xFF_00_00_00;
-const WHITE: u32 = 0xFF_FF_FF | OPAQUE;
 
-#[allow(clippy::identity_op)]
-const BLACK: u32 = 0x00_00_00 | OPAQUE;
-
-fn rgb(r: u8, g: u8, b: u8) -> u32 {
+const fn rgb(r: u8, g: u8, b: u8) -> u32 {
     let (r, g, b) = (r as u32, g as u32, b as u32);
 
     (r) | (g << 8) | (b << 16) | OPAQUE
 }
 
-#[inline]
 fn rand_color() -> u32 {
     use rand::RngCore;
 
@@ -74,6 +71,31 @@ impl GridCell {
     }
 }
 
+/// Maps iteration cycles to a color
+///
+/// Sourced from StackOverflow: https://stackoverflow.com/a/16505538
+const COLOR_MAPPING: [u32; 16] = [
+    rgb(66, 30, 15),
+    rgb(25, 7, 26),
+    rgb(9, 1, 47),
+    rgb(4, 4, 73),
+    rgb(0, 7, 100),
+    rgb(12, 44, 138),
+    rgb(24, 82, 177),
+    rgb(57, 125, 209),
+    rgb(134, 181, 229),
+    rgb(211, 236, 248),
+    rgb(241, 233, 191),
+    rgb(248, 201, 95),
+    rgb(255, 170, 0),
+    rgb(204, 128, 0),
+    rgb(153, 87, 0),
+    rgb(106, 52, 3),
+];
+
+fn color_by_iteration(i: u32) -> u32 {
+    COLOR_MAPPING[i as usize % COLOR_MAPPING.len()]
+}
 struct Sim {
     config: SimConfig,
     iters: u32,
@@ -123,10 +145,13 @@ impl Sim {
                 continue;
             }
 
-            let ratio = 1.0 - (cell.iters as f64 / self.iters as f64);
-
-            let g = (0xff as f64 * ratio) as u8;
-            *pixel = rgb(g, g, g);
+            if cell.iters == self.iters {
+                // If we haven't escaped yet, use black
+                *pixel = BLACK;
+            } else {
+                // otherwise, we'll use a palette that cycles between neat colors
+                *pixel = color_by_iteration(cell.iters);
+            }
         }
     }
 }
