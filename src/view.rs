@@ -212,12 +212,46 @@ fn pick_window_dims(min: DVec2, max: DVec2) -> UVec2 {
     UVec2::new(x.round() as u32, y.round() as u32)
 }
 
-fn main() {
-    // Visually appealing framing for the Mandelbrot set
-    let frame_min: DVec2 = DVec2::new(-2.5, -1.25);
-    let frame_max: DVec2 = DVec2::new(1.0, 1.25);
+/// Make a square frame centered at `p` with radius `r`
+fn make_square_frame(p: DVec2, r: f64) -> (DVec2, DVec2) {
+    let min: DVec2 = DVec2::new(p.x - r, p.y - r);
+    let max: DVec2 = DVec2::new(p.x + r, p.y + r);
 
+    (min, max)
+}
+
+/// Makes a frame that shows "The" Mandelbrot fractal how everyone expects it
+fn make_default_frame() -> (DVec2, DVec2) {
+    let min: DVec2 = DVec2::new(-2.5, -1.25);
+    let max: DVec2 = DVec2::new(1.0, 1.25);
+
+    (min, max)
+}
+
+#[allow(unused_variables)]
+fn main() {
+    // Frames taken from here:
+    // http://www.cuug.ab.ca/dewara/mandelbrot/Mandelbrowser.html
+
+    // X = -1.25066
+    // Y = 0.02012
+    // R = 1.7E-4
+    let (frame_min, frame_max) = make_square_frame((-1.25066, 0.02012).into(), 1.7E-4);
+
+    // X = -0.722
+    // Y = 0.246
+    // R = 0.019
+    let (frame_min, frame_max) = make_square_frame((-0.722, 0.246).into(), 0.019);
+
+    // "The" Mandelbrot view
+    let (frame_min, frame_max) = make_default_frame();
+
+    // dimensions for the window
     let window_dims = pick_window_dims(frame_min, frame_max);
+
+    // dimsensions for the framebuffer
+    // scale this up for better quality
+    let pixel_dims = 1 * window_dims;
 
     let mut window = Window::new(
         &format!("Mandelbrot - {}x{}", window_dims.x, window_dims.y),
@@ -232,12 +266,12 @@ fn main() {
     .expect("Failed to create a window");
 
     let mut sim = Sim::new(SimConfig {
-        pixels: window_dims,
+        pixels: pixel_dims,
         frame_min,
         frame_max,
     });
 
-    let mut framebuffer: Vec<u32> = vec![0; (window_dims.x * window_dims.y) as usize];
+    let mut framebuffer: Vec<u32> = vec![0; (pixel_dims.x * pixel_dims.y) as usize];
 
     // Limit to max ~60 fps update rate
     window.limit_update_rate(Some(std::time::Duration::from_micros(16_600)));
@@ -252,7 +286,7 @@ fn main() {
         sim.draw(&mut framebuffer);
 
         if let Err(err) =
-            window.update_with_buffer(&framebuffer, window_dims.x as usize, window_dims.y as usize)
+            window.update_with_buffer(&framebuffer, pixel_dims.x as usize, pixel_dims.y as usize)
         {
             dbg!(err);
         }
