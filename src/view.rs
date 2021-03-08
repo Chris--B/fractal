@@ -124,6 +124,17 @@ impl Sim {
         }
     }
 
+    /// Reset the sim state to a fresh object
+    fn reset(&mut self) {
+        self.grid.clear();
+
+        let framebuffer_size = self.config.pixels.x * self.config.pixels.y;
+        for idx in 0..framebuffer_size {
+            let c = self.config.idx_to_complex(idx);
+            self.grid.push(GridCell::new(c));
+        }
+    }
+
     fn update(&mut self) {
         self.iters += 1;
 
@@ -251,7 +262,7 @@ fn main() {
 
     // dimsensions for the framebuffer
     // scale this up for better quality
-    let pixel_dims = 1 * window_dims;
+    let pixel_dims = window_dims;
 
     let mut window = Window::new(
         &format!("Mandelbrot - {}x{}", window_dims.x, window_dims.y),
@@ -279,6 +290,10 @@ fn main() {
     while window.is_open() {
         if window.is_key_down(Key::Escape) || window.is_key_down(Key::Q) {
             break;
+        }
+
+        if window.is_key_down(Key::R) {
+            sim.reset();
         }
 
         sim.update();
