@@ -8,10 +8,13 @@ const WHITE: u32 = rgb(0xff, 0xff, 0xff);
 const BLACK: u32 = rgb(0x00, 0x00, 0x00);
 const OPAQUE: u32 = 0xFF_00_00_00;
 
+/// Construct a color for use with minifb
+///
+/// The encoding for each pixel is 0RGB
 const fn rgb(r: u8, g: u8, b: u8) -> u32 {
     let (r, g, b) = (r as u32, g as u32, b as u32);
 
-    (r) | (g << 8) | (b << 16) | OPAQUE
+    (r << 16) | (g << 8) | b | OPAQUE
 }
 
 fn rand_color() -> u32 {
