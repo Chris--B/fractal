@@ -35,53 +35,96 @@ struct SimConfig {
     frame_max: DVec2,
 }
 
-struct Sim {
-    config: SimConfig,
-}
-
-impl Sim {
-    fn new(config: SimConfig) -> Self {
-        Self { config }
-    }
-
+impl SimConfig {
     #[inline]
     fn idx_to_complex(&self, idx: u32) -> Complex<f64> {
         // Unpack out integer coordinates
-        let x = idx % self.config.pixels.x;
-        let y = idx / self.config.pixels.x;
+        let x = idx % self.pixels.x;
+        let y = idx / self.pixels.x;
 
         // Normalize coordinates
-        let x: f64 = (x as f64) / (self.config.pixels.x as f64);
-        let y: f64 = (y as f64) / (self.config.pixels.y as f64);
+        let x: f64 = (x as f64) / (self.pixels.x as f64);
+        let y: f64 = (y as f64) / (self.pixels.y as f64);
 
         // Flip the buffer to put "bigger" y at the "top"
         let y: f64 = 1.0 - y;
 
         // Scale into the bounds space
-        let x = x * self.config.frame_max.x + (1.0 - x) * self.config.frame_min.x;
-        let y = y * self.config.frame_max.y + (1.0 - y) * self.config.frame_min.y;
+        let x = x * self.frame_max.x + (1.0 - x) * self.frame_min.x;
+        let y = y * self.frame_max.y + (1.0 - y) * self.frame_min.y;
 
         Complex::new(x, y)
     }
+}
 
-    fn draw(&mut self, fb: &mut [u32]) {
-        /// Iterations that make it this far are assumed to never diverge and get colored black.
-        const MAX_ITERS: u32 = 30;
+#[derive(Copy, Clone, Debug)]
+struct GridCell {
+    c: Complex<f64>,
+    z: Complex<f64>,
+    iters: u32,
+}
 
-        for (idx, pixel) in fb.iter_mut().enumerate() {
-            let c = self.idx_to_complex(idx as u32);
-            let mut z = Complex::new(0., 0.);
+impl GridCell {
+    fn new(c: Complex<f64>) -> Self {
+        GridCell {
+            c,
+            z: Complex::new(0., 0.),
+            iters: 0,
+        }
+    }
+}
 
-            let mut iters = MAX_ITERS;
+struct Sim {
+    config: SimConfig,
+    iters: u32,
+    grid: Vec<GridCell>,
+}
 
-            for i in 0..MAX_ITERS {
-                z = z * z + c;
-                if z.norm_sqr() >= 4.0 {
-                    iters = i;
-                }
+impl Sim {
+    fn new(config: SimConfig) -> Self {
+        let framebuffer_size = config.pixels.x * config.pixels.y;
+        let mut grid = Vec::with_capacity(framebuffer_size as usize);
+
+        for idx in 0..framebuffer_size {
+            let c = config.idx_to_complex(idx);
+            grid.push(GridCell::new(c));
+        }
+
+        assert_eq!(grid.len(), framebuffer_size as usize);
+
+        Self {
+            config,
+            iters: 0,
+            grid,
+        }
+    }
+
+    fn update(&mut self) {
+        self.iters += 1;
+
+        for cell in self.grid.iter_mut() {
+            // Skip already diverged cells
+            if cell.z.norm_sqr() >= 4.0 {
+                continue;
             }
 
-            let ratio = 1.0 - (iters as f64 / MAX_ITERS as f64);
+            // Update the state of the grid
+            cell.iters += 1;
+            cell.z = cell.z * cell.z + cell.c;
+        }
+    }
+
+    fn draw(&mut self, fb: &mut [u32]) {
+        assert_eq!(fb.len(), self.grid.len());
+
+        for (pixel, cell) in fb.iter_mut().zip(self.grid.iter()) {
+            if cell.z.norm_sqr() <= 4.0 {
+                *pixel = rgb(0, 0, 0);
+                continue;
+            }
+
+            let ratio = 1.0 - (cell.iters as f64 / self.iters as f64);
+
             let g = (0xff as f64 * ratio) as u8;
             *pixel = rgb(g, g, g);
         }
@@ -168,10 +211,6 @@ fn main() {
 
     let mut framebuffer: Vec<u32> = vec![0; (window_dims.x * window_dims.y) as usize];
 
-    // Render once
-    // This keeps the window interactive once the image has been rendered.
-    sim.draw(&mut framebuffer);
-
     // Limit to max ~60 fps update rate
     window.limit_update_rate(Some(std::time::Duration::from_micros(16_600)));
 
@@ -179,6 +218,10 @@ fn main() {
         if window.is_key_down(Key::Escape) || window.is_key_down(Key::Q) {
             break;
         }
+
+        sim.update();
+
+        sim.draw(&mut framebuffer);
 
         if let Err(err) =
             window.update_with_buffer(&framebuffer, window_dims.x as usize, window_dims.y as usize)
