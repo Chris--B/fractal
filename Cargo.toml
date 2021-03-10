@@ -6,6 +6,9 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+
 [lib]
 name = "fractal"
 path = "src/lib.rs"
@@ -19,6 +22,7 @@ minifb = "0.19"
 rand = "0.8"
 num = "0.4"
 ultraviolet = { version = "0.7", features = ["f64", "int"] }
+rayon = { version = "1", optional = true }
 
 # Enable minimal optimizations for our debug code
 [profile.dev]

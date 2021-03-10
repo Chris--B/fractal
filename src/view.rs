@@ -4,6 +4,9 @@ use minifb::{Key, ScaleMode, Window, WindowOptions};
 use num::Complex;
 use ultraviolet::{DVec2, UVec2};
 
+#[cfg(feature = "rayon")]
+use rayon::prelude::*;
+
 use std::time::{Duration, Instant};
 
 const WHITE: u32 = rgb(0xff, 0xff, 0xff);
@@ -156,16 +159,40 @@ impl Sim {
     }
 
     fn update(&mut self) {
-        for cell in self.grid.iter_mut().filter(|c| !c.has_escaped) {
-            cell.step();
+        #[cfg(feature = "rayon")]
+        {
+            self.grid
+                .par_iter_mut()
+                // Skip already diverged cells
+                .filter(|c| !c.has_escaped)
+                .for_each(|cell| {
+                    cell.step();
+                })
+        }
+
+        #[cfg(not(feature = "rayon"))]
+        {
+            for cell in self.grid.iter_mut().filter(|c| !c.has_escaped) {
+                cell.step();
+            }
         }
     }
 
     fn draw(&mut self, fb: &mut [u32]) {
         assert_eq!(fb.len(), self.grid.len());
 
-        for (i, pixel) in fb.iter_mut().enumerate() {
-            *pixel = self.grid[i].color();
+        #[cfg(feature = "rayon")]
+        {
+            fb.par_iter_mut().enumerate().for_each(|(i, pixel)| {
+                *pixel = self.grid[i].color();
+            });
+        }
+
+        #[cfg(not(feature = "rayon"))]
+        {
+            for (i, pixel) in fb.iter_mut().enumerate() {
+                *pixel = self.grid[i].color();
+            }
         }
     }
 }
