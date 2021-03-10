@@ -4,6 +4,8 @@ use minifb::{Key, ScaleMode, Window, WindowOptions};
 use num::Complex;
 use ultraviolet::{DVec2, UVec2};
 
+use std::time::{Duration, Instant};
+
 const WHITE: u32 = rgb(0xff, 0xff, 0xff);
 const BLACK: u32 = rgb(0x00, 0x00, 0x00);
 const OPAQUE: u32 = 0xFF_00_00_00;
@@ -285,7 +287,8 @@ fn main() {
     let mut framebuffer: Vec<u32> = vec![0; (pixel_dims.x * pixel_dims.y) as usize];
 
     // Limit to max ~60 fps update rate
-    window.limit_update_rate(Some(std::time::Duration::from_micros(16_600)));
+    let frame_delay = Duration::from_micros(16_600);
+    window.limit_update_rate(Some(frame_delay));
 
     while window.is_open() {
         if window.is_key_down(Key::Escape) || window.is_key_down(Key::Q) {
@@ -296,7 +299,16 @@ fn main() {
             sim.reset();
         }
 
-        sim.update();
+        // Update as many times as we can within our frame budget.
+        // Note: This technically exceeds it is still more flexible than N updates per "frame"
+        let mut dur = Duration::new(0, 0);
+        while dur < frame_delay {
+            let begin = Instant::now();
+
+            sim.update();
+
+            dur += Instant::now() - begin;
+        }
 
         sim.draw(&mut framebuffer);
 
