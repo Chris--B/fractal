@@ -64,6 +64,7 @@ struct GridCell {
     c: Complex<f64>,
     z: Complex<f64>,
     iters: u32,
+    has_escaped: bool,
 }
 
 impl GridCell {
@@ -72,38 +73,59 @@ impl GridCell {
             c,
             z: Complex::new(0., 0.),
             iters: 0,
+            has_escaped: false,
+        }
+    }
+
+    fn step(&mut self) {
+        // Skip if we've already escaped
+        if self.has_escaped {
+            return;
+        }
+
+        // Perform our iteration
+        self.iters += 1;
+        self.z = self.z * self.z + self.c;
+
+        // Check our escape condition
+        if self.z.norm_sqr() > 4.0 {
+            self.has_escaped = true;
+        }
+    }
+
+    fn color(&self) -> u32 {
+        if self.has_escaped {
+            // Use a color palette that cycles based off of iterations
+            // Sourced from StackOverflow: https://stackoverflow.com/a/16505538
+            const COLOR_MAPPING: [u32; 16] = [
+                rgb(66, 30, 15),
+                rgb(25, 7, 26),
+                rgb(9, 1, 47),
+                rgb(4, 4, 73),
+                rgb(0, 7, 100),
+                rgb(12, 44, 138),
+                rgb(24, 82, 177),
+                rgb(57, 125, 209),
+                rgb(134, 181, 229),
+                rgb(211, 236, 248),
+                rgb(241, 233, 191),
+                rgb(248, 201, 95),
+                rgb(255, 170, 0),
+                rgb(204, 128, 0),
+                rgb(153, 87, 0),
+                rgb(106, 52, 3),
+            ];
+
+            COLOR_MAPPING[self.iters as usize % COLOR_MAPPING.len()]
+        } else {
+            // If we haven't escaped yet, use black
+            BLACK
         }
     }
 }
 
-/// Maps iteration cycles to a color
-///
-/// Sourced from StackOverflow: https://stackoverflow.com/a/16505538
-const COLOR_MAPPING: [u32; 16] = [
-    rgb(66, 30, 15),
-    rgb(25, 7, 26),
-    rgb(9, 1, 47),
-    rgb(4, 4, 73),
-    rgb(0, 7, 100),
-    rgb(12, 44, 138),
-    rgb(24, 82, 177),
-    rgb(57, 125, 209),
-    rgb(134, 181, 229),
-    rgb(211, 236, 248),
-    rgb(241, 233, 191),
-    rgb(248, 201, 95),
-    rgb(255, 170, 0),
-    rgb(204, 128, 0),
-    rgb(153, 87, 0),
-    rgb(106, 52, 3),
-];
-
-fn color_by_iteration(i: u32) -> u32 {
-    COLOR_MAPPING[i as usize % COLOR_MAPPING.len()]
-}
 struct Sim {
     config: SimConfig,
-    iters: u32,
     grid: Vec<GridCell>,
 }
 
@@ -119,11 +141,7 @@ impl Sim {
 
         assert_eq!(grid.len(), framebuffer_size as usize);
 
-        Self {
-            config,
-            iters: 0,
-            grid,
-        }
+        Self { config, grid }
     }
 
     /// Reset the sim state to a fresh object
@@ -132,42 +150,22 @@ impl Sim {
 
         let framebuffer_size = self.config.pixels.x * self.config.pixels.y;
         for idx in 0..framebuffer_size {
-            let c = self.config.idx_to_complex(idx);
+            let c: Complex<_> = self.config.idx_to_complex(idx);
             self.grid.push(GridCell::new(c));
         }
     }
 
     fn update(&mut self) {
-        self.iters += 1;
-
-        for cell in self.grid.iter_mut() {
-            // Skip already diverged cells
-            if cell.z.norm_sqr() >= 4.0 {
-                continue;
-            }
-
-            // Update the state of the grid
-            cell.iters += 1;
-            cell.z = cell.z * cell.z + cell.c;
+        for cell in self.grid.iter_mut().filter(|c| !c.has_escaped) {
+            cell.step();
         }
     }
 
     fn draw(&mut self, fb: &mut [u32]) {
         assert_eq!(fb.len(), self.grid.len());
 
-        for (pixel, cell) in fb.iter_mut().zip(self.grid.iter()) {
-            if cell.z.norm_sqr() <= 4.0 {
-                *pixel = rgb(0, 0, 0);
-                continue;
-            }
-
-            if cell.iters == self.iters {
-                // If we haven't escaped yet, use black
-                *pixel = BLACK;
-            } else {
-                // otherwise, we'll use a palette that cycles between neat colors
-                *pixel = color_by_iteration(cell.iters);
-            }
+        for (i, pixel) in fb.iter_mut().enumerate() {
+            *pixel = self.grid[i].color();
         }
     }
 }
