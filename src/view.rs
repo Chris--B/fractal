@@ -2,7 +2,7 @@
 
 use minifb::{Key, ScaleMode, Window, WindowOptions};
 use num::Complex;
-use ultraviolet::{DVec2, UVec2};
+use ultraviolet::{DVec2, DVec3, UVec2};
 
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
@@ -66,6 +66,9 @@ impl SimConfig {
 struct GridCell {
     c: Complex<f64>,
     z: Complex<f64>,
+    dc: Complex<f64>,
+    dz: Complex<f64>,
+
     iters: u32,
     has_escaped: bool,
 }
@@ -75,6 +78,9 @@ impl GridCell {
         GridCell {
             c,
             z: Complex::new(0., 0.),
+            dc: Complex::new(1., 0.),
+            dz: Complex::new(1., 0.),
+
             iters: 0,
             has_escaped: false,
         }
@@ -88,43 +94,98 @@ impl GridCell {
 
         // Perform our iteration
         self.iters += 1;
-        self.z = self.z * self.z + self.c;
 
-        // Check our escape condition
+        // Copy values out so we can update them
+        let GridCell { c, z, dc, dz, .. } = *self;
+
+        self.z = z * z + c;
+        self.dz = dz * 2. * z + dc;
+
+        // Check our typical escape condition
         if self.z.norm_sqr() > 4.0 {
             self.has_escaped = true;
         }
     }
+}
 
-    fn color(&self) -> u32 {
-        if self.has_escaped {
-            // Use a color palette that cycles based off of iterations
-            // Sourced from StackOverflow: https://stackoverflow.com/a/16505538
-            const COLOR_MAPPING: [u32; 16] = [
-                rgb(66, 30, 15),
-                rgb(25, 7, 26),
-                rgb(9, 1, 47),
-                rgb(4, 4, 73),
-                rgb(0, 7, 100),
-                rgb(12, 44, 138),
-                rgb(24, 82, 177),
-                rgb(57, 125, 209),
-                rgb(134, 181, 229),
-                rgb(211, 236, 248),
-                rgb(241, 233, 191),
-                rgb(248, 201, 95),
-                rgb(255, 170, 0),
-                rgb(204, 128, 0),
-                rgb(153, 87, 0),
-                rgb(106, 52, 3),
-            ];
+// Use a color palette that cycles based off of iterations
+// Sourced from StackOverflow: https://stackoverflow.com/a/16505538
+const COLOR_MAPPING: [DVec3; 16] = [
+    DVec3::new(66., 30., 15.),
+    DVec3::new(25., 7., 26.),
+    DVec3::new(9., 1., 47.),
+    DVec3::new(4., 4., 73.),
+    DVec3::new(0., 7., 100.),
+    DVec3::new(12., 44., 138.),
+    DVec3::new(24., 82., 177.),
+    DVec3::new(57., 125., 209.),
+    DVec3::new(134., 181., 229.),
+    DVec3::new(211., 236., 248.),
+    DVec3::new(241., 233., 191.),
+    DVec3::new(248., 201., 95.),
+    DVec3::new(255., 170., 0.),
+    DVec3::new(204., 128., 0.),
+    DVec3::new(153., 87., 0.),
+    DVec3::new(106., 52., 3.),
+];
 
-            COLOR_MAPPING[self.iters as usize % COLOR_MAPPING.len()]
-        } else {
-            // If we haven't escaped yet, use black
-            BLACK
-        }
+fn palette_with_plain_colors(cell: &GridCell) -> DVec3 {
+    if cell.has_escaped {
+        // Color from iterations
+        COLOR_MAPPING[cell.iters as usize % COLOR_MAPPING.len()] / 255.
+    } else {
+        DVec3::broadcast(0.)
     }
+}
+
+fn palette_with_lambert_and_colors(cell: &GridCell) -> DVec3 {
+    let color = if cell.has_escaped {
+        // Color from iterations
+        COLOR_MAPPING[cell.iters as usize % COLOR_MAPPING.len()] / 255.
+    } else {
+        0.8 * DVec3::new(205., 92., 92.) / 255.
+    };
+
+    // Normal of the "surface"
+    let u: Complex<_> = cell.z / cell.dz;
+    let u = DVec2::new(u.re, u.im).normalized();
+    let n = DVec3::new(u.x, u.y, 1.);
+
+    // Our point's location
+    let pos = DVec3::new(cell.c.re, cell.c.im, 0.);
+
+    // Light source
+    const L_POS: DVec3 = DVec3::new(-2.1, 0.75, 4.);
+    let l_dir = (L_POS - pos).normalized();
+    let t = 0.75 / l_dir.mag();
+    let t = t.max(0.0);
+
+    t * n.dot(l_dir).max(0.0) * color
+}
+
+fn palette_with_white_lambert(cell: &GridCell) -> DVec3 {
+    let color = if cell.has_escaped {
+        DVec3::new(1., 1., 1.)
+    } else {
+        // If we haven't escaped yet, use black
+        DVec3::new(0., 0., 0.)
+    };
+
+    // Normal of the "surface"
+    let u: Complex<_> = cell.z / cell.dz;
+    let u = DVec2::new(u.re, u.im).normalized();
+    let n = DVec3::new(u.x, u.y, 1.);
+
+    // Our point's location
+    let pos = DVec3::new(cell.c.re, cell.c.im, 0.);
+
+    // Light source
+    const L_POS: DVec3 = DVec3::new(-2.1, 0.75, 4.);
+    let l_dir = (L_POS - pos).normalized();
+    let t = 0.75 / l_dir.mag();
+    let t = t.max(0.0);
+
+    t * n.dot(l_dir).max(0.0) * color
 }
 
 struct Sim {
@@ -181,17 +242,32 @@ impl Sim {
     fn draw(&mut self, fb: &mut [u32]) {
         assert_eq!(fb.len(), self.grid.len());
 
+        // ==== Pick your color function at compile time!
+        use palette_with_plain_colors as color;
+        // use palette_with_lambert_and_colors as color;
+        // use palette_with_white_lambert as color;
+
         #[cfg(feature = "rayon")]
         {
             fb.par_iter_mut().enumerate().for_each(|(i, pixel)| {
-                *pixel = self.grid[i].color();
+                let mut c = color(&self.grid[i]);
+                // Clamp and scale all output from `color` into the range for our 8-bit channels: [0, 255]
+                c.clamp(DVec3::new(0., 0., 0.), DVec3::new(1., 1., 1.));
+                c *= 255.;
+
+                *pixel = rgb(c.x as u8, c.y as u8, c.z as u8);
             });
         }
 
         #[cfg(not(feature = "rayon"))]
         {
             for (i, pixel) in fb.iter_mut().enumerate() {
-                *pixel = self.grid[i].color();
+                let mut c = color(&self.grid[i]);
+                // Clamp and scale all output from `color` into the range for our 8-bit channels: [0, 255]
+                c.clamp(DVec3::new(0., 0., 0.), DVec3::new(1., 1., 1.));
+                c *= 255.;
+
+                *pixel = rgb(c.x as u8, c.y as u8, c.z as u8);
             }
         }
     }
