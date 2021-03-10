@@ -7,6 +7,7 @@ use ultraviolet::{DVec2, DVec3, UVec2};
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
+use std::f64::consts::TAU;
 use std::time::{Duration, Instant};
 
 const WHITE: u32 = rgb(0xff, 0xff, 0xff);
@@ -73,6 +74,8 @@ struct GridCell {
     has_escaped: bool,
 }
 
+const R2: u32 = 1_000 * 1_000;
+
 impl GridCell {
     fn new(c: Complex<f64>) -> Self {
         GridCell {
@@ -87,8 +90,9 @@ impl GridCell {
     }
 
     fn step(&mut self) {
-        // Skip if we've already escaped
-        if self.has_escaped {
+        // Use a separate threshold for when to stop stepping.
+        // This is generally much larger than |2|, but produces better coloring schemes.
+        if self.z.norm_sqr() > R2 as f64 {
             return;
         }
 
@@ -138,6 +142,20 @@ fn palette_with_plain_colors(cell: &GridCell) -> DVec3 {
     }
 }
 
+fn palette_with_smooth_stripes(cell: &GridCell) -> DVec3 {
+    fn f(x: f64) -> DVec3 {
+        let c = (1. + f64::cos(TAU * x)) / 2.;
+        DVec3::broadcast(c)
+    }
+
+    let z2 = cell.z.norm_sqr();
+    if z2 > R2 as f64 {
+        let v: f64 = f64::log2(z2) / f64::powf(2., cell.iters as f64);
+        f(v.log2())
+    } else {
+        DVec3::broadcast(1.)
+    }
+}
 fn palette_with_lambert_and_colors(cell: &GridCell) -> DVec3 {
     let color = if cell.has_escaped {
         // Color from iterations
@@ -222,18 +240,14 @@ impl Sim {
     fn update(&mut self) {
         #[cfg(feature = "rayon")]
         {
-            self.grid
-                .par_iter_mut()
-                // Skip already diverged cells
-                .filter(|c| !c.has_escaped)
-                .for_each(|cell| {
-                    cell.step();
-                })
+            self.grid.par_iter_mut().for_each(|cell| {
+                cell.step();
+            })
         }
 
         #[cfg(not(feature = "rayon"))]
         {
-            for cell in self.grid.iter_mut().filter(|c| !c.has_escaped) {
+            for cell in self.grid.iter_mut() {
                 cell.step();
             }
         }
@@ -243,7 +257,9 @@ impl Sim {
         assert_eq!(fb.len(), self.grid.len());
 
         // ==== Pick your color function at compile time!
-        use palette_with_plain_colors as color;
+        // use palette_with_plain_colors as color;
+        // use palette_with_plain_colors_smooth as color;
+        use palette_with_smooth_stripes as color;
         // use palette_with_lambert_and_colors as color;
         // use palette_with_white_lambert as color;
 
