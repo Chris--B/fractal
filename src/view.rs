@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use minifb::{Key, ScaleMode, Window, WindowOptions};
+use minifb::{Key, KeyRepeat, ScaleMode, Window, WindowOptions};
 use num::Complex;
 use ultraviolet::{DVec2, DVec3, UVec2};
 
@@ -379,6 +379,14 @@ fn main() {
     )
     .expect("Failed to create a window");
 
+    // Limit to max ~60 fps update rate
+    let frame_delay = Duration::from_micros(16_600);
+    window.limit_update_rate(Some(frame_delay));
+
+    // Limit how quickly holding the Arrow Key down sends us updated events
+    window.set_key_repeat_delay(0.2);
+    window.set_key_repeat_rate(0.2);
+
     let mut sim = Sim::new(SimConfig {
         pixels: pixel_dims,
         frame_min,
@@ -387,37 +395,93 @@ fn main() {
 
     let mut framebuffer: Vec<u32> = vec![0; (pixel_dims.x * pixel_dims.y) as usize];
 
-    // Limit to max ~60 fps update rate
-    let frame_delay = Duration::from_micros(16_600);
-    window.limit_update_rate(Some(frame_delay));
+    #[derive(Copy, Clone, Debug)]
+    enum State {
+        Paused,
+        Running,
+        RunOneFrame,
+    }
+
+    let mut state = State::Running;
 
     while window.is_open() {
+        // Keys to quit
         if window.is_key_down(Key::Escape) || window.is_key_down(Key::Q) {
             break;
         }
 
+        // Reset the simulation state
         if window.is_key_down(Key::R) {
             sim.reset();
         }
 
-        // Update as many times as we can within our frame budget.
-        // Note: This technically exceeds it is still more flexible than N updates per "frame"
-        let mut dur = Duration::new(0, 0);
-        while dur < frame_delay {
-            let begin = Instant::now();
-
-            sim.update();
-
-            dur += Instant::now() - begin;
+        // Toggle Pause
+        if window.is_key_pressed(Key::Space, KeyRepeat::No) {
+            if matches!(state, State::Paused) {
+                state = State::Running;
+            } else {
+                state = State::Paused;
+            }
         }
 
+        // Advance one iteration at a time with the Right Arrow key
+        if window.is_key_pressed(Key::Right, KeyRepeat::Yes) {
+            if matches!(state, State::Paused) {
+                state = State::RunOneFrame;
+            }
+        }
+
+        // Run (or don't run) the simulation
+        match state {
+            State::Paused => {
+                // Nothing to do when paused
+            }
+            State::Running => {
+                // Update as many times as we can within our frame budget.
+                let mut estimate = {
+                    let begin = Instant::now();
+                    sim.update();
+                    Instant::now() - begin
+                };
+
+                let mut left = frame_delay;
+                while left > estimate {
+                    let begin = Instant::now();
+                    sim.update();
+
+                    let dur = Instant::now() - begin;
+                    estimate = estimate.max(dur);
+
+                    // Duration panics on underflow, so check it here
+                    if left > dur {
+                        left -= dur;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            State::RunOneFrame => {
+                // Time and run a single frame
+                let begin = Instant::now();
+                sim.update();
+                let dur = Instant::now() - begin;
+
+                println!("sim.update() took {:?}", dur);
+            }
+        }
+
+        // Re-draw on the framebuffer unconditionally
         sim.draw(&mut framebuffer);
 
-        if let Err(err) =
-            window.update_with_buffer(&framebuffer, pixel_dims.x as usize, pixel_dims.y as usize)
-        {
-            dbg!(err);
+        // If we stepped a single frame this loop, reset our state to Paused
+        // Otherwise, we'll keep updating!
+        if matches!(state, State::RunOneFrame) {
+            state = State::Paused;
         }
-        window.update();
+
+        // Update the framebuffer unconditionally
+        window
+            .update_with_buffer(&framebuffer, pixel_dims.x as usize, pixel_dims.y as usize)
+            .unwrap();
     }
 }
