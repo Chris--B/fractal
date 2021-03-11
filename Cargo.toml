@@ -3,6 +3,7 @@ name = "fractal"
 version = "0.1.0"
 authors = ["Chris Butler <chrisbutler296@gmail.com>"]
 edition = "2018"
+default-run = "view"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
