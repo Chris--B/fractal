@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use minifb::{Key, KeyRepeat, ScaleMode, Window, WindowOptions};
 use num::Complex;
 use ultraviolet::{DVec2, DVec3, UVec2};
@@ -10,35 +8,27 @@ use rayon::prelude::*;
 use std::f64::consts::TAU;
 use std::time::{Duration, Instant};
 
-const WHITE: u32 = rgb(0xff, 0xff, 0xff);
-const BLACK: u32 = rgb(0x00, 0x00, 0x00);
-const OPAQUE: u32 = 0xFF_00_00_00;
-
 /// Construct a color for use with minifb
 ///
 /// The encoding for each pixel is 0RGB
 const fn rgb(r: u8, g: u8, b: u8) -> u32 {
+    const OPAQUE: u32 = 0xFF_00_00_00;
+
     let (r, g, b) = (r as u32, g as u32, b as u32);
 
     (r << 16) | (g << 8) | b | OPAQUE
 }
 
-fn rand_color() -> u32 {
-    use rand::RngCore;
-
-    rand::thread_rng().next_u32() | OPAQUE
-}
-
 #[derive(Debug, Clone, Copy, PartialEq)]
-struct SimConfig {
+pub struct SimConfig {
     /// 2D Dimensions of the framebuffer
-    pixels: UVec2,
+    pub pixels: UVec2,
 
     /// Complex point of the lower-left (-x & -y) point of the frame
-    frame_min: DVec2,
+    pub frame_min: DVec2,
 
     /// Complex point of the upper-right (+x & +y) point of the frame
-    frame_max: DVec2,
+    pub frame_max: DVec2,
 }
 
 impl SimConfig {
@@ -64,20 +54,20 @@ impl SimConfig {
 }
 
 #[derive(Copy, Clone, Debug)]
-struct GridCell {
-    c: Complex<f64>,
-    z: Complex<f64>,
-    dc: Complex<f64>,
-    dz: Complex<f64>,
+pub struct GridCell {
+    pub c: Complex<f64>,
+    pub z: Complex<f64>,
+    pub dc: Complex<f64>,
+    pub dz: Complex<f64>,
 
-    iters: u32,
-    has_escaped: bool,
+    pub iters: u32,
+    pub has_escaped: bool,
 }
 
 const R2: u32 = 1_000 * 1_000;
 
 impl GridCell {
-    fn new(c: Complex<f64>) -> Self {
+    pub fn new(c: Complex<f64>) -> Self {
         GridCell {
             c,
             z: Complex::new(0., 0.),
@@ -89,7 +79,7 @@ impl GridCell {
         }
     }
 
-    fn step(&mut self) {
+    pub fn step(&mut self) {
         // Use a separate threshold for when to stop stepping.
         // This is generally much larger than |2|, but produces better coloring schemes.
         if self.z.norm_sqr() > R2 as f64 {
@@ -133,7 +123,7 @@ const COLOR_MAPPING: [DVec3; 16] = [
     DVec3::new(106., 52., 3.),
 ];
 
-fn palette_with_plain_colors(cell: &GridCell) -> DVec3 {
+pub fn palette_with_plain_colors(cell: &GridCell) -> DVec3 {
     if cell.has_escaped {
         // Color from iterations
         COLOR_MAPPING[cell.iters as usize % COLOR_MAPPING.len()] / 255.
@@ -142,7 +132,7 @@ fn palette_with_plain_colors(cell: &GridCell) -> DVec3 {
     }
 }
 
-fn palette_with_smooth_stripes(cell: &GridCell) -> DVec3 {
+pub fn palette_with_smooth_stripes(cell: &GridCell) -> DVec3 {
     fn f(x: f64) -> DVec3 {
         let c = (1. + f64::cos(TAU * x)) / 2.;
         DVec3::broadcast(c)
@@ -156,7 +146,8 @@ fn palette_with_smooth_stripes(cell: &GridCell) -> DVec3 {
         DVec3::broadcast(1.)
     }
 }
-fn palette_with_lambert_and_colors(cell: &GridCell) -> DVec3 {
+
+pub fn palette_with_lambert_and_colors(cell: &GridCell) -> DVec3 {
     let color = if cell.has_escaped {
         // Color from iterations
         COLOR_MAPPING[cell.iters as usize % COLOR_MAPPING.len()] / 255.
@@ -181,7 +172,7 @@ fn palette_with_lambert_and_colors(cell: &GridCell) -> DVec3 {
     t * n.dot(l_dir).max(0.0) * color
 }
 
-fn palette_with_white_lambert(cell: &GridCell) -> DVec3 {
+pub fn palette_with_white_lambert(cell: &GridCell) -> DVec3 {
     let color = if cell.has_escaped {
         DVec3::new(1., 1., 1.)
     } else {
@@ -206,13 +197,13 @@ fn palette_with_white_lambert(cell: &GridCell) -> DVec3 {
     t * n.dot(l_dir).max(0.0) * color
 }
 
-struct Sim {
+pub struct Sim {
     config: SimConfig,
     grid: Vec<GridCell>,
 }
 
 impl Sim {
-    fn new(config: SimConfig) -> Self {
+    pub fn new(config: SimConfig) -> Self {
         let framebuffer_size = config.pixels.x * config.pixels.y;
         let mut grid = Vec::with_capacity(framebuffer_size as usize);
 
@@ -227,7 +218,7 @@ impl Sim {
     }
 
     /// Reset the sim state to a fresh object
-    fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.grid.clear();
 
         let framebuffer_size = self.config.pixels.x * self.config.pixels.y;
@@ -237,7 +228,7 @@ impl Sim {
         }
     }
 
-    fn update(&mut self) {
+    pub fn update(&mut self) {
         #[cfg(feature = "rayon")]
         {
             self.grid.par_iter_mut().for_each(|cell| {
@@ -253,7 +244,7 @@ impl Sim {
         }
     }
 
-    fn draw(&mut self, fb: &mut [u32]) {
+    pub fn draw(&mut self, fb: &mut [u32]) {
         assert_eq!(fb.len(), self.grid.len());
 
         // ==== Pick your color function at compile time!
