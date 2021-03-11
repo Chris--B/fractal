@@ -1,2 +1,6 @@
+# Cargo files
 /target
 Cargo.lock
+
+# Image outputs
+*.png
