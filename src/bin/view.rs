@@ -1,4 +1,4 @@
-use minifb::{Key, KeyRepeat, ScaleMode, Window, WindowOptions};
+use minifb::{Key, KeyRepeat, MouseMode, ScaleMode, Window, WindowOptions};
 use ultraviolet::{DVec2, UVec2};
 
 use std::time::{Duration, Instant};
@@ -66,6 +66,12 @@ enum SimState {
     RunOneFrame,
 }
 
+#[derive(Copy, Clone, Debug)]
+enum ViewMode {
+    Idle,
+    Zoom { rate: f64 },
+}
+
 fn main() {
     // See more frames here:
     // http://www.cuug.ab.ca/dewara/mandelbrot/Mandelbrowser.html
@@ -106,6 +112,7 @@ fn main() {
     let mut frame = 0;
     let mut state = SimState::Running;
     let mut palette_idx = 0;
+    let mut mode = ViewMode::Idle;
 
     while window.is_open() {
         frame += 1;
@@ -159,6 +166,20 @@ fn main() {
             palette_idx = 9;
         } else if window.is_key_pressed(Key::Key0, KeyRepeat::No) {
             palette_idx = 0;
+        }
+
+        // Toggle zooming - it will follow the mouse cursor
+        if window.is_key_pressed(Key::Z, KeyRepeat::No) {
+            mode = match mode {
+                ViewMode::Idle => ViewMode::Zoom { rate: 1. },
+                ViewMode::Zoom { .. } => ViewMode::Idle,
+            };
+        }
+
+        if let ViewMode::Zoom { rate } = mode {
+            if let Some(pos) = window.get_mouse_pos(MouseMode::Discard) {
+                dbg!(pos, rate);
+            }
         }
 
         // Run (or don't run) the simulation
