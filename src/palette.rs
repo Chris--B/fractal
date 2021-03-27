@@ -100,3 +100,12 @@ pub fn with_white_lambert(cell: &GridCell) -> DVec3 {
 
     t * n.dot(l_dir).max(0.0) * color
 }
+
+pub fn with_color_from_dz(cell: &GridCell) -> DVec3 {
+    let x = 30. * cell.dz.re;
+
+    // Color from the derivative of z
+    // This does not distinguish between escaped or not, but dz relates to this anyway, so
+    // it's still visible in the final image.
+    COLOR_MAPPING[x as usize % COLOR_MAPPING.len()] / 255.
+}

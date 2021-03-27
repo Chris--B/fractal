@@ -173,10 +173,10 @@ fn main() {
         // Re-draw on the framebuffer unconditionally
 
         let color = palette::with_plain_colors;
-        // let color = palette::with_plain_colors_smooth ;
-        // let color = palette::with_smooth_stripes ;
-        // let color = palette::with_lambert_and_colors ;
-        // let color = palette::with_white_lambert ;
+        // let color = palette::with_smooth_stripes;
+        // let color = palette::with_lambert_and_colors;
+        // let color = palette::with_white_lambert;
+        // let color = palette::with_color_from_dz;
         sim.draw(&mut framebuffer, color);
 
         // If we stepped a single frame this loop, reset our state to Paused

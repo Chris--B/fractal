@@ -62,10 +62,10 @@ fn main() {
     let mut framebuffer: Vec<u32> = vec![0; (fb_dims.x * fb_dims.y) as usize];
 
     let color = palette::with_plain_colors;
-    // let color = palette::with_plain_colors_smooth ;
-    // let color = palette::with_smooth_stripes ;
-    // let color = palette::with_lambert_and_colors ;
-    // let color = palette::with_white_lambert ;
+    // let color = palette::with_smooth_stripes;
+    // let color = palette::with_lambert_and_colors;
+    // let color = palette::with_white_lambert;
+    // let color = palette::with_color_from_dz;
     sim.draw(&mut framebuffer, color);
 
     // Change format from 0RGB -> to RGBA, both 8-bit channels
