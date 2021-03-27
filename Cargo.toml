@@ -16,11 +16,11 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "view"
-path = "src/view.rs"
+path = "src/bin/view.rs"
 
 [[bin]]
 name = "gen"
-path = "src/gen.rs"
+path = "src/bin/gen.rs"
 
 [dependencies]
 minifb = "0.19"
