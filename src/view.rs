@@ -3,7 +3,7 @@ use ultraviolet::{DVec2, UVec2};
 
 use std::time::{Duration, Instant};
 
-use fractal::{make_default_frame, Sim, SimConfig};
+use fractal::{make_default_frame, palette, Sim, SimConfig};
 
 // Pick a reasonable resolution that fits without on screen and matches the frame's aspect ratio
 fn pick_window_dims(min: DVec2, max: DVec2) -> UVec2 {
@@ -171,7 +171,13 @@ fn main() {
         }
 
         // Re-draw on the framebuffer unconditionally
-        sim.draw(&mut framebuffer);
+
+        let color = palette::with_plain_colors;
+        // let color = palette::with_plain_colors_smooth ;
+        // let color = palette::with_smooth_stripes ;
+        // let color = palette::with_lambert_and_colors ;
+        // let color = palette::with_white_lambert ;
+        sim.draw(&mut framebuffer, color);
 
         // If we stepped a single frame this loop, reset our state to Paused
         // Otherwise, we'll keep updating!

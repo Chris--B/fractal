@@ -2,7 +2,7 @@ use ultraviolet::UVec2;
 
 use std::time::{Duration, Instant};
 
-use fractal::{make_default_frame, Sim, SimConfig};
+use fractal::{make_default_frame, palette, Sim, SimConfig};
 
 fn main() {
     // See more frames here:
@@ -60,7 +60,13 @@ fn main() {
 
     // Render and write out image
     let mut framebuffer: Vec<u32> = vec![0; (fb_dims.x * fb_dims.y) as usize];
-    sim.draw(&mut framebuffer);
+
+    let color = palette::with_plain_colors;
+    // let color = palette::with_plain_colors_smooth ;
+    // let color = palette::with_smooth_stripes ;
+    // let color = palette::with_lambert_and_colors ;
+    // let color = palette::with_white_lambert ;
+    sim.draw(&mut framebuffer, color);
 
     // Change format from 0RGB -> to RGBA, both 8-bit channels
     // We'll always use 0xFF for alpha.

@@ -4,7 +4,9 @@ use ultraviolet::{DVec2, DVec3, UVec2};
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
-use std::f64::consts::TAU;
+pub mod palette;
+
+const R2: u32 = 1_000 * 1_000;
 
 /// Construct a color for use with minifb
 ///
@@ -60,8 +62,6 @@ pub struct GridCell {
     pub has_escaped: bool,
 }
 
-const R2: u32 = 1_000 * 1_000;
-
 impl GridCell {
     pub fn new(c: Complex<f64>) -> Self {
         GridCell {
@@ -96,101 +96,6 @@ impl GridCell {
             self.has_escaped = true;
         }
     }
-}
-
-// Use a color palette that cycles based off of iterations
-// Sourced from StackOverflow: https://stackoverflow.com/a/16505538
-const COLOR_MAPPING: [DVec3; 16] = [
-    DVec3::new(66., 30., 15.),
-    DVec3::new(25., 7., 26.),
-    DVec3::new(9., 1., 47.),
-    DVec3::new(4., 4., 73.),
-    DVec3::new(0., 7., 100.),
-    DVec3::new(12., 44., 138.),
-    DVec3::new(24., 82., 177.),
-    DVec3::new(57., 125., 209.),
-    DVec3::new(134., 181., 229.),
-    DVec3::new(211., 236., 248.),
-    DVec3::new(241., 233., 191.),
-    DVec3::new(248., 201., 95.),
-    DVec3::new(255., 170., 0.),
-    DVec3::new(204., 128., 0.),
-    DVec3::new(153., 87., 0.),
-    DVec3::new(106., 52., 3.),
-];
-
-pub fn palette_with_plain_colors(cell: &GridCell) -> DVec3 {
-    if cell.has_escaped {
-        // Color from iterations
-        COLOR_MAPPING[cell.iters as usize % COLOR_MAPPING.len()] / 255.
-    } else {
-        DVec3::broadcast(0.)
-    }
-}
-
-pub fn palette_with_smooth_stripes(cell: &GridCell) -> DVec3 {
-    fn f(x: f64) -> DVec3 {
-        let c = (1. + f64::cos(TAU * x)) / 2.;
-        DVec3::broadcast(c)
-    }
-
-    let z2 = cell.z.norm_sqr();
-    if z2 > R2 as f64 {
-        let v: f64 = f64::log2(z2) / f64::powf(2., cell.iters as f64);
-        f(v.log2())
-    } else {
-        DVec3::broadcast(1.)
-    }
-}
-
-pub fn palette_with_lambert_and_colors(cell: &GridCell) -> DVec3 {
-    let color = if cell.has_escaped {
-        // Color from iterations
-        COLOR_MAPPING[cell.iters as usize % COLOR_MAPPING.len()] / 255.
-    } else {
-        0.8 * DVec3::new(205., 92., 92.) / 255.
-    };
-
-    // Normal of the "surface"
-    let u: Complex<_> = cell.z / cell.dz;
-    let u = DVec2::new(u.re, u.im).normalized();
-    let n = DVec3::new(u.x, u.y, 1.);
-
-    // Our point's location
-    let pos = DVec3::new(cell.c.re, cell.c.im, 0.);
-
-    // Light source
-    const L_POS: DVec3 = DVec3::new(-2.1, 0.75, 4.);
-    let l_dir = (L_POS - pos).normalized();
-    let t = 0.75 / l_dir.mag();
-    let t = t.max(0.0);
-
-    t * n.dot(l_dir).max(0.0) * color
-}
-
-pub fn palette_with_white_lambert(cell: &GridCell) -> DVec3 {
-    let color = if cell.has_escaped {
-        DVec3::new(1., 1., 1.)
-    } else {
-        // If we haven't escaped yet, use black
-        DVec3::new(0., 0., 0.)
-    };
-
-    // Normal of the "surface"
-    let u: Complex<_> = cell.z / cell.dz;
-    let u = DVec2::new(u.re, u.im).normalized();
-    let n = DVec3::new(u.x, u.y, 1.);
-
-    // Our point's location
-    let pos = DVec3::new(cell.c.re, cell.c.im, 0.);
-
-    // Light source
-    const L_POS: DVec3 = DVec3::new(-2.1, 0.75, 4.);
-    let l_dir = (L_POS - pos).normalized();
-    let t = 0.75 / l_dir.mag();
-    let t = t.max(0.0);
-
-    t * n.dot(l_dir).max(0.0) * color
 }
 
 pub struct Sim {
@@ -240,15 +145,11 @@ impl Sim {
         }
     }
 
-    pub fn draw(&mut self, fb: &mut [u32]) {
+    pub fn draw<ColorFn>(&mut self, fb: &mut [u32], color: ColorFn)
+    where
+        ColorFn: Fn(&GridCell) -> DVec3 + Sync,
+    {
         assert_eq!(fb.len(), self.grid.len());
-
-        // ==== Pick your color function at compile time!
-        use palette_with_plain_colors as color;
-        // use palette_with_plain_colors_smooth as color;
-        // use palette_with_smooth_stripes as color;
-        // use palette_with_lambert_and_colors as color;
-        // use palette_with_white_lambert as color;
 
         #[cfg(feature = "rayon")]
         {
