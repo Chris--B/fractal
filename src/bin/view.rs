@@ -58,6 +58,14 @@ fn pick_window_dims(min: DVec2, max: DVec2) -> UVec2 {
     UVec2::new(x.round() as u32, y.round() as u32)
 }
 
+/// Different modes that represent how or whether the sim is updated
+#[derive(Copy, Clone, Debug)]
+enum SimState {
+    Paused,
+    Running,
+    RunOneFrame,
+}
+
 fn main() {
     // See more frames here:
     // http://www.cuug.ab.ca/dewara/mandelbrot/Mandelbrowser.html
@@ -95,16 +103,12 @@ fn main() {
 
     let mut framebuffer: Vec<u32> = vec![0; (fb_dims.x * fb_dims.y) as usize];
 
-    #[derive(Copy, Clone, Debug)]
-    enum State {
-        Paused,
-        Running,
-        RunOneFrame,
-    }
-
-    let mut state = State::Running;
+    let mut frame = 0;
+    let mut state = SimState::Running;
 
     while window.is_open() {
+        frame += 1;
+
         // Keys to quit
         if window.is_key_down(Key::Escape) || window.is_key_down(Key::Q) {
             break;
@@ -117,26 +121,26 @@ fn main() {
 
         // Toggle Pause
         if window.is_key_pressed(Key::Space, KeyRepeat::No) {
-            if matches!(state, State::Paused) {
-                state = State::Running;
+            if matches!(state, SimState::Paused) {
+                state = SimState::Running;
             } else {
-                state = State::Paused;
+                state = SimState::Paused;
             }
         }
 
         // Advance one iteration at a time with the Right Arrow key
         if window.is_key_pressed(Key::Right, KeyRepeat::Yes) {
-            if matches!(state, State::Paused) {
-                state = State::RunOneFrame;
+            if matches!(state, SimState::Paused) {
+                state = SimState::RunOneFrame;
             }
         }
 
         // Run (or don't run) the simulation
         match state {
-            State::Paused => {
+            SimState::Paused => {
                 // Nothing to do when paused
             }
-            State::Running => {
+            SimState::Running => {
                 // Update as many times as we can within our frame budget.
                 let mut estimate = {
                     let begin = Instant::now();
@@ -160,7 +164,7 @@ fn main() {
                     }
                 }
             }
-            State::RunOneFrame => {
+            SimState::RunOneFrame => {
                 // Time and run a single frame
                 let begin = Instant::now();
                 sim.update();
@@ -181,8 +185,8 @@ fn main() {
 
         // If we stepped a single frame this loop, reset our state to Paused
         // Otherwise, we'll keep updating!
-        if matches!(state, State::RunOneFrame) {
-            state = State::Paused;
+        if matches!(state, SimState::RunOneFrame) {
+            state = SimState::Paused;
         }
 
         // Update the framebuffer unconditionally
