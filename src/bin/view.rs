@@ -105,9 +105,11 @@ fn main() {
 
     let mut frame = 0;
     let mut state = SimState::Running;
+    let mut palette_idx = 0;
 
     while window.is_open() {
         frame += 1;
+        let _frame = frame;
 
         // Keys to quit
         if window.is_key_down(Key::Escape) || window.is_key_down(Key::Q) {
@@ -132,7 +134,31 @@ fn main() {
         if window.is_key_pressed(Key::Right, KeyRepeat::Yes) {
             if matches!(state, SimState::Paused) {
                 state = SimState::RunOneFrame;
+            } else {
+                //
             }
+        }
+
+        if window.is_key_pressed(Key::Key1, KeyRepeat::No) {
+            palette_idx = 1;
+        } else if window.is_key_pressed(Key::Key2, KeyRepeat::No) {
+            palette_idx = 2;
+        } else if window.is_key_pressed(Key::Key3, KeyRepeat::No) {
+            palette_idx = 3;
+        } else if window.is_key_pressed(Key::Key4, KeyRepeat::No) {
+            palette_idx = 4;
+        } else if window.is_key_pressed(Key::Key5, KeyRepeat::No) {
+            palette_idx = 5;
+        } else if window.is_key_pressed(Key::Key6, KeyRepeat::No) {
+            palette_idx = 6;
+        } else if window.is_key_pressed(Key::Key7, KeyRepeat::No) {
+            palette_idx = 7;
+        } else if window.is_key_pressed(Key::Key8, KeyRepeat::No) {
+            palette_idx = 8;
+        } else if window.is_key_pressed(Key::Key9, KeyRepeat::No) {
+            palette_idx = 9;
+        } else if window.is_key_pressed(Key::Key0, KeyRepeat::No) {
+            palette_idx = 0;
         }
 
         // Run (or don't run) the simulation
@@ -176,12 +202,19 @@ fn main() {
 
         // Re-draw on the framebuffer unconditionally
 
-        let color = palette::with_plain_colors;
-        // let color = palette::with_smooth_stripes;
-        // let color = palette::with_lambert_and_colors;
-        // let color = palette::with_white_lambert;
-        // let color = palette::with_color_from_dz;
-        sim.draw(&mut framebuffer, color);
+        const PALETTES: [for<'r> fn(&'r fractal::GridCell) -> ultraviolet::DVec3; 5] = [
+            palette::with_plain_colors,
+            palette::with_smooth_stripes,
+            palette::with_lambert_and_colors,
+            palette::with_white_lambert,
+            palette::with_color_from_dz,
+        ];
+
+        if palette_idx >= PALETTES.len() {
+            palette_idx = 0;
+        }
+
+        sim.draw(&mut framebuffer, PALETTES[palette_idx]);
 
         // If we stepped a single frame this loop, reset our state to Paused
         // Otherwise, we'll keep updating!
