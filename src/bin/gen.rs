@@ -10,7 +10,7 @@ fn main() {
 
     // "The" Mandelbrot View
     let (frame_min, frame_max) = make_default_frame();
-    let aspect_ratio = (frame_max.x - frame_min.x) as f64 / (frame_max.y - frame_min.y) as f64;
+    let aspect_ratio = (frame_max.x - frame_min.x) / (frame_max.y - frame_min.y);
 
     let width = 1080.;
     let height = width / aspect_ratio;

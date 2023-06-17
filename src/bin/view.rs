@@ -51,8 +51,8 @@ fn pick_window_dims(min: DVec2, max: DVec2) -> UVec2 {
     }
 
     // Sanity check because this logic took forever to get right.
-    assert!(x <= window_dims.x as f64);
-    assert!(y <= window_dims.y as f64);
+    assert!(x <= window_dims.x);
+    assert!(y <= window_dims.y);
 
     // Round our chosen dimensions into integer coordinates and we're done!
     UVec2::new(x.round() as u32, y.round() as u32)

@@ -8,7 +8,7 @@ default-run = "view"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = []
+default = ["rayon"]
 
 [lib]
 name = "fractal"
@@ -23,12 +23,12 @@ name = "gen"
 path = "src/bin/gen.rs"
 
 [dependencies]
-minifb = "0.19"
+minifb = "0.24"
 rand = "0.8"
 num = "0.4"
-ultraviolet = { version = "0.7", features = ["f64", "int"] }
+ultraviolet = { version = "0.9", features = ["f64", "int"] }
 rayon = { version = "1", optional = true }
-image = { version = "0.23", default-features = false, features = ["png"] }
+image = { version = "0.24", default-features = false, features = ["png"] }
 bytemuck = "1"
 
 # Enable minimal optimizations for our debug code
